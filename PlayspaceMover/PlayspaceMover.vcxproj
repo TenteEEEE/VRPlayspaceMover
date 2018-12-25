@@ -23,7 +23,7 @@
     <ProjectGuid>{1D8D078A-61F0-4B32-B7AC-34B808D81972}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>PlayspaceMover</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -75,8 +75,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>E:\PlayspaceMover\third-party\glm-0.9.9-a2;E:\PlayspaceMover\third-party\OculusSDK\LibOVR\Include;E:\PlayspaceMover\third-party\VRInputEmulator\include;E:\PlayspaceMover\third-party\openvr\headers;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\naelstrof\.nuget\packages\boost_date_time-vc141\1.66.0\lib\native;E:\PlayspaceMover\third-party\openvr\lib\win64;E:\PlayspaceMover\third-party\VRInputEmulator\lib\x64;E:\PlayspaceMover\third-party\OculusSDK\LibOVR\Lib\Windows\x64\Release\VS2015;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath);C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\glm-0.9.9-a2;C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\openvr-1.1.3b\headers;C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\OpenVR-InputEmulator-1.3\lib_vrinputemulator\include;C:\Program Files\ZeroMQ\include;</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(LibraryPath);C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\OpenVR-InputEmulator-1.3\Debug\lib\x64;C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\openvr-1.1.3b\lib\win64;C:\Users\Kotaro\Dropbox\Research\fulltracking\VRPlayspaceMover\PlayspaceMover\third-party\OpenVR-InputEmulator-1.3\packages\boost_date_time-vc141.1.68.0.0\lib\native\;C:\Program Files\ZeroMQ\lib</LibraryPath>
+    <ExecutablePath>$(VC_ExecutablePath_x64);$(WindowsSDK_ExecutablePath);$(VS_ExecutablePath);$(MSBuild_ExecutablePath);$(FxCopDir);$(PATH);C:\Program Files\ZeroMQ\bin</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -113,7 +114,9 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>openvr_api.lib;libvrinputemulator-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>openvr_api.lib;libvrinputemulator-d.lib;%(AdditionalDependencies);C:\Program Files\ZeroMQ\lib\libzmq-v141-mt-gd-4_3_1.lib;C:\Program Files\ZeroMQ\lib\libzmq-v141-mt-4_3_1.lib;</AdditionalDependencies>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

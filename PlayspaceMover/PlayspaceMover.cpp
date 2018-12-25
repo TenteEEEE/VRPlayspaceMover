@@ -13,6 +13,11 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <csignal>
+#include <random>
+#include "zmq.hpp"
+#include "zmq_addon.hpp"
+#include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -63,6 +68,8 @@ static uint32_t rightFootID;
 static float bodyHeight;
 static bool orbitTracker;
 static bool physicsToggleChanged;
+static bool externalTracking;
+
 
 void Help() {
     std::cout << "PlayspaceMover " << PLAYSPACE_MOVER_VERSION << "\n";
@@ -372,7 +379,7 @@ void setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot) {
 	inputEmulator.setVirtualDevicePose(id, pose, false);
 }
 
-void updateFakeTrackers() {
+void updateFakeTrackers(zmq::socket_t &socket) {
 	if (!fakeTrackers) {
 		return;
 	}
@@ -401,8 +408,51 @@ void updateFakeTrackers() {
 		glm::quat trackersRot;
 		glm::vec3 footRight;
 		glm::vec3 footForward;
+		glm::vec3 hipPos, hipRot, leftFootPos, leftFootRot, rightFootPos, rightFootRot;
 
-		if (orbitTracker) {
+		if (externalTracking) {
+			zmq::message_t rcv_msg;
+			socket.recv(&rcv_msg);
+			std::string msg = std::string(static_cast<char*>(rcv_msg.data()), rcv_msg.size());
+			msg.erase(msg.begin());
+			msg.erase(msg.end() - 1);
+
+			std::string delim(",");
+			std::vector<std::string> arr;
+			boost::split(arr, msg, boost::is_any_of(delim));
+			for (std::size_t i = 0; i < arr.size(); i++) {
+				std::cout << std::stof(arr[i]) << " ";
+			}
+			std::cout << std::endl;
+
+			glm::vec3 tmp_pos, tmp_rot;
+			for (int m = 0; m < 3; m++) {
+				float pos[3];
+				float rot[3];
+				for (int k = 0; k < 3; k++) {
+					pos[k] = std::stof(arr[k + m * 6]);
+					rot[k] = std::stof(arr[k + 3 + m * 6]);
+				}
+				tmp_pos = glm::vec3(pos[0], pos[1], pos[2]);
+				tmp_rot = glm::vec3(rot[0], rot[1], rot[2]);
+				switch (m) {
+				case 0:
+					hipPos = tmp_pos;
+					hipRot = tmp_rot;
+					break;
+				case 1:
+					leftFootPos = tmp_pos;
+					leftFootRot = tmp_rot;
+					break;
+				case 2:
+					rightFootPos = tmp_pos;
+					rightFootRot = tmp_rot;
+					break;
+				default:
+					break;
+				}
+			}
+		} else if (orbitTracker) {
 			down = hmdRot*glm::vec3(0, -1, 0);
 			trackersRot = hmdRot;
 			footRight = trackersRot*glm::vec3(1, 0, 0);
@@ -415,12 +465,20 @@ void updateFakeTrackers() {
 			footRight = trackersRot*glm::vec3(0, 0, 1);
 			footForward = trackersRot*glm::vec3(-1, 0, 0);
 		}	 
-		glm::vec3 hipPos = realHMDPos + down * (bodyHeight / 2.f);
-		glm::vec3 leftFootPos = realHMDPos + down * bodyHeight + (footForward - footRight) * 0.17f;
-		glm::vec3 rightFootPos = realHMDPos + down * bodyHeight + (footForward + footRight) * 0.17f;
-		setVirtualDevicePosition(hipID, hipPos, trackersRot);
-		setVirtualDevicePosition(leftFootID, leftFootPos, trackersRot);
-		setVirtualDevicePosition(rightFootID, rightFootPos, trackersRot);
+		
+		if (externalTracking) {
+			setVirtualDevicePosition(hipID, hipPos, hipRot);
+			setVirtualDevicePosition(leftFootID, leftFootPos, leftFootRot);
+			setVirtualDevicePosition(rightFootID, rightFootPos, rightFootRot);
+		}
+		else {
+			hipPos = realHMDPos + down * (bodyHeight / 2.f);
+			leftFootPos = realHMDPos + down * bodyHeight + (footForward - footRight) * 0.17f;
+			rightFootPos = realHMDPos + down * bodyHeight + (footForward + footRight) * 0.17f;
+			setVirtualDevicePosition(hipID, hipPos, trackersRot);
+			setVirtualDevicePosition(leftFootID, leftFootPos, trackersRot);
+			setVirtualDevicePosition(rightFootID, rightFootPos, trackersRot);
+		}
 	}
 }
 
@@ -528,7 +586,8 @@ int app( int argc, const char** argv ) {
         ("bodyHeight", "Sets the distance between the head and feet, in meters.", cxxopts::value<float>()->default_value("2"))
 		("orbitTracker", "Fake Trackers move relative to HMD rotation.")
 		("positional", "Positional parameters", cxxopts::value<std::vector<std::string>>())
-        ;
+		("externalTracking", "Enable external tracking system.")
+		;
 
 	options.parse_positional("positional");
     auto result = options.parse(argc, argv);
@@ -588,6 +647,10 @@ int app( int argc, const char** argv ) {
 		leftFootID = createTracker();
 		rightFootID = createTracker();
 	}
+	externalTracking = result["externalTracking"].as<bool>();
+	if (externalTracking) {
+		std::cout << "Enabled external tracking system..." << std::endl;
+	}
 	// Only enable physics if they specify one of the variables...
 	physicsEnabled = (result.count("jumpMultiplier") || result.count("airFriction") || result.count("friction") || result.count("noGround") || result.count("gravity") || result["physics"].as<bool>());
     offset = glm::mat4x4(1);
@@ -609,12 +672,18 @@ int app( int argc, const char** argv ) {
 	signal(SIGINT, signalHandler);
     std::cout << "READY! Press CTRL+C with this window focused to quit.\n" << std::flush;
 
+	// Socket
+	zmq::context_t context(1);
+	zmq::socket_t socket(context, ZMQ_SUB);
+	socket.connect("tcp://localhost:55115");
+	socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
     // Main loop
     bool running = true;
 	appliedImpulse = true;
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	int numFramePresents = 0;
-    while (running) {
+    while (running) {	
         if (vr::VRCompositor() != NULL) {
             vr::Compositor_FrameTiming t;
             t.m_nSize = sizeof(vr::Compositor_FrameTiming);
@@ -631,11 +700,11 @@ int app( int argc, const char** argv ) {
                 updateVirtualDevices();
                 updatePositions();
                 updateOffset(leftButtonMask, rightButtonMask, resetButtonMask, leftTogglePhysicsButtonMask, rightTogglePhysicsButtonMask);
-				updateFakeTrackers();
+				updateFakeTrackers(socket);
 				collide();
                 move();
 
-                /*vr::ETrackedPropertyError errProp;
+				/*vr::ETrackedPropertyError errProp;
                 int microsecondWait;
                 float flDisplayFrequency = vr::VRSystem()->GetFloatTrackedDeviceProperty(0, vr::Prop_DisplayFrequency_Float, &errProp);
                 if (flDisplayFrequency) {

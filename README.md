@@ -1,5 +1,18 @@
-# Playspace Mover
+# Playspace Mover for DIY tracking system
+It is a fork project from VR Playspace Mover. I modified it for DIY tracking system.  
+Option "externalTracking" enables your tracking system.
 
+## How does it work
+It uses socket communication through ZeroMQ and subscribes tcp://localhost:55115.
+When it receives tracking data, it overwrites virtual tracker positions.
+
+## Tracking data format
+After making your tracking system, publish your tracking data using ZeroMQ.
+Each argument contains 3 float data (xyz).  
+[hip_pos, hip_rot, leftFoot_pos, leftFoot_rot, rightFoot_pos, rightFoot_rot]
+
+---
+# Playspace Mover
 Lets you drag around your playspace by gripping certain buttons. This allows you to "climb" around certain games, and allows you to adjust your floor level on the fly.
 This is compatible with KinectToVR, and can run in tandem with any SteamVR app.
 
