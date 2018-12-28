@@ -5,10 +5,12 @@ Option "externalTracking" enables your tracking system.
 ## How does it work
 It uses socket communication through ZeroMQ and subscribes tcp://localhost:55115.
 When it receives tracking data, it overwrites virtual tracker positions.
+It also publish head position and quaternion which are provided by your HMD.
+The publisher port is tcp://localhost:55114.
 
 ## Tracking data format
 After making your tracking system, publish your tracking data using ZeroMQ.
-Each argument contains 3 float data (xyz).  
+Each position argument contains 3 float(xyz), rotation argument contains 4 float(quaternion, xyzw).  
 [hip_pos, hip_rot, leftFoot_pos, leftFoot_rot, rightFoot_pos, rightFoot_rot]
 
 ---
