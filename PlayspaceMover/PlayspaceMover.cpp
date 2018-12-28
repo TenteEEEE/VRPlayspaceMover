@@ -88,6 +88,7 @@ void Help() {
     std::cout << "  --noGround                  Disables ground collisions when physics is enabled.\n";
     std::cout << "  --fakeTrackers              Spawns some fake full body trackers that follow you.\n";
     std::cout << "  --orbitTracker              Fake trackers move relative to your HMD rotation.\n";
+    std::cout << "  --externalTracking          Listen tracking data through zeromq (tcp://localhost:55115)\n";
     std::cout << "  -l, --leftButtonMask=INT\n";
     std::cout << "                              Button mask that represents which button\n";
     std::cout << "                              to detect on the left controller as an integer.\n";
@@ -379,7 +380,7 @@ void setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot) {
 	inputEmulator.setVirtualDevicePose(id, pose, false);
 }
 
-void updateFakeTrackers(zmq::socket_t &socket) {
+void updateFakeTrackers(zmq::socket_t &publisher, zmq::socket_t &subscriber) {
 	if (!fakeTrackers) {
 		return;
 	}
@@ -408,15 +409,32 @@ void updateFakeTrackers(zmq::socket_t &socket) {
 		glm::quat trackersRot;
 		glm::vec3 footRight;
 		glm::vec3 footForward;
-		glm::vec3 hipPos, hipRot, leftFootPos, leftFootRot, rightFootPos, rightFootRot;
+		glm::vec3 hipPos, leftFootPos, rightFootPos;
+		glm::quat hipRot, leftFootRot, rightFootRot;
 
 		if (externalTracking) {
+			float msgs[7];
+			msgs[0] = realHMDPos.x;
+			msgs[1] = realHMDPos.y;
+			msgs[2] = realHMDPos.z;
+			msgs[3] = hmdRot.x;
+			msgs[4] = hmdRot.y;
+			msgs[5] = hmdRot.z;
+			msgs[6] = hmdRot.w;
+			for (int i = 0; i < 7; i++) {
+				//std::cout << msgs[i] << " ";
+				zmq::message_t msg((void*)&msgs[i], sizeof(float), NULL);
+				if (i < 6)	publisher.send(msg, ZMQ_SNDMORE);
+				else		publisher.send(msg);
+			}
+			//std::cout << std::endl;
+			
 			zmq::message_t rcv_msg;
-			socket.recv(&rcv_msg);
+			subscriber.recv(&rcv_msg);
 			std::string msg = std::string(static_cast<char*>(rcv_msg.data()), rcv_msg.size());
 			msg.erase(msg.begin());
 			msg.erase(msg.end() - 1);
-
+			
 			std::string delim(",");
 			std::vector<std::string> arr;
 			boost::split(arr, msg, boost::is_any_of(delim));
@@ -425,13 +443,15 @@ void updateFakeTrackers(zmq::socket_t &socket) {
 			}
 			std::cout << std::endl;
 
-			glm::vec3 tmp_pos, tmp_rot;
+
+			glm::vec3 tmp_pos;
+			glm::quat tmp_rot;
 			for (int m = 0; m < 3; m++) {
 				float pos[3];
-				float rot[3];
-				for (int k = 0; k < 3; k++) {
-					pos[k] = std::stof(arr[k + m * 6]);
-					rot[k] = std::stof(arr[k + 3 + m * 6]);
+				float rot[4];
+				for (int k = 0; k < 4; k++) {
+					rot[k] = std::stof(arr[k + 3 + m * 7]);
+					if (k<3)	pos[k] = std::stof(arr[k + m * 7]);
 				}
 				tmp_pos = glm::vec3(pos[0], pos[1], pos[2]);
 				tmp_rot = glm::vec3(rot[0], rot[1], rot[2]);
@@ -674,9 +694,13 @@ int app( int argc, const char** argv ) {
 
 	// Socket
 	zmq::context_t context(1);
-	zmq::socket_t socket(context, ZMQ_SUB);
-	socket.connect("tcp://localhost:55115");
-	socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+	zmq::socket_t subscriber(context, ZMQ_SUB);
+	subscriber.connect("tcp://localhost:55115");
+	subscriber.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
+	zmq::socket_t publisher(context, ZMQ_PUB);
+	publisher.bind("tcp://*:55114");
+	
 
     // Main loop
     bool running = true;
@@ -700,7 +724,7 @@ int app( int argc, const char** argv ) {
                 updateVirtualDevices();
                 updatePositions();
                 updateOffset(leftButtonMask, rightButtonMask, resetButtonMask, leftTogglePhysicsButtonMask, rightTogglePhysicsButtonMask);
-				updateFakeTrackers(socket);
+				updateFakeTrackers(publisher,subscriber);
 				collide();
                 move();
 
