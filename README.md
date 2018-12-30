@@ -13,6 +13,9 @@ After making your tracking system, publish your tracking data using ZeroMQ.
 Each position argument contains 3 float(xyz), rotation argument contains 4 float(quaternion, xyzw).  
 [hip_pos, hip_rot, leftFoot_pos, leftFoot_rot, rightFoot_pos, rightFoot_rot]
 
+## Tracking example
+`python sample/tracking_sample.py`
+
 ---
 # Playspace Mover
 Lets you drag around your playspace by gripping certain buttons. This allows you to "climb" around certain games, and allows you to adjust your floor level on the fly.
